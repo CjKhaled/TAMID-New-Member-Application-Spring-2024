@@ -1,0 +1,304 @@
+# Definitely more functionality I wanted to implement, but ran out of time.
+
+from faker import Faker
+from random import randint, choice
+
+fake = Faker()
+# So that we can generate fake names and ages
+
+
+class IceCream:
+    def __init__(self, name: str, number_scoops: int, price_for_customers: float, cost_for_truck: float):
+        # For consistency, the name is always going to be lowercase
+        self.name = name.lower()
+        self.number_scoops = number_scoops
+        self.price_for_customers = price_for_customers
+        self.cost_for_truck = cost_for_truck
+
+    def get_name(self):
+        return self.name
+
+    def get_price_for_customers(self):
+        return self.price_for_customers
+
+    def get_cost_for_truck(self):
+        return self.cost_for_truck
+
+    def get_number_scoops(self):
+        return self.number_scoops
+
+    def add_scoops(self, number):
+        self.number_scoops = self.number_scoops + number
+
+
+class Customer:
+    def __init__(self, name: str, age: int, dollars: int):
+        self.name = name
+        self.age = age
+        self.dollars = dollars
+
+    def customer_purchase(self, flavor):
+        # To find a random number of scoops, we find the max they can buy and just use randint. They have to
+        # Buy at least one
+        # They first need to be able to at least purchase one scoop though
+        print(f"{self.name} has ${self.dollars} in their bank account.")
+        if not self.check_money(flavor.price_for_customers):
+            return False
+        else:
+            flavor = flavor.name
+            max_scoops = int(self.dollars / flavor.price_for_customers)
+            number_scoops = randint(1, max_scoops)
+            print(f"They purchased {number_scoops} scoops of {flavor} for "
+                  f"${flavor.price_for_customers * number_scoops}")
+            return [flavor, number_scoops, flavor.price_for_customers * number_scoops]
+
+    def check_money(self, price):
+        if price > self.dollars:
+            return False
+        else:
+            return True
+
+    def __str__(self):
+        return f"{self.name} who is {self.age} years old with ${self.dollars}"
+
+
+class Truck:
+    def __init__(self, name: str, money_available: int):
+        self.name = name
+        self.money_available = money_available
+        self.scoops_sold = 0
+        self.total_sales = {}
+        self.total_revenue = 0
+        # Whenever the truck is first bought, we are just going to make it come with ice cream in it.
+        self.flavors = {'vanilla': IceCream('vanilla', 24, 1.30, 0.50)}
+
+    def add_flavor(self, flavor):
+        # We use a dictionary as our data object, storing the name of the flavor as the key, and
+        # ice cream object as the value
+        # If the user puts in the same flavor twice, we just add the amount of scoops available
+        scoops = flavor.number_scoops
+        cost = flavor.cost_for_truck
+        if flavor.get_name() in self.flavors.keys():
+            flavor = self.flavors.get(flavor.get_name())
+            print("You already have this flavor. How many scoops would you like to add?")
+            number = int(input("Scoops: "))
+            flavor.add_scoops(number)
+        else:
+            self.flavors[flavor.get_name()] = flavor
+        if self.money_available - (scoops * cost) < 0:
+            print("You don't have the funds to do this.")
+        else:
+            self.money_available -= scoops * cost
+            print(f"You bought {scoops} scoops which cost you ${scoops * cost}. Your balance "
+                  f"is now ${self.money_available} \n")
+
+    def log_purchase(self, name, scoops, price):
+        self.scoops_sold += scoops
+        self.total_revenue += price
+        self.money_available += price
+        self.total_sales[name] = scoops
+
+    def pay_workers(self, driver, worker, money):
+        driver_cut = money * 0.15
+        driver.get_paid(driver_cut)
+        worker_cut = money * 0.05
+        worker.get_paid(worker_cut)
+        return money - (driver_cut + worker_cut)
+
+    def hire_new_worker(self, worker):
+        if worker == 'driver':
+            self.money_available -= 150
+        if worker == 'truck worker':
+            self.money_available -= 50
+
+
+class Driver:
+    def __init__(self, name: str, age: int, employment: bool):
+        # Drivers will make a flat rate of 15% per customer. There can only be one driver at a time.
+        # It costs $150 to hire a new driver
+        self.name = name
+        self.age = age
+        self.employment = employment
+        self.payments = 0
+
+    def get_paid(self, money):
+        self.payments += money
+
+    def __str__(self):
+        return f"Driver {self.name} is {self.age} years old and has made ${self.payments}"
+
+
+class TruckWorker:
+    def __init__(self, name: str, age: int, employment: bool):
+        # Truck workers make a flat rate of 5% per customer. There can be a max of 10 workers at a time.
+        # It costs $50 to hire a new worker
+        self.name = name.lower()
+        self.age = age
+        self.employment = employment
+        self.payments = 0
+
+    def employed(self):
+        return self.employment
+
+    def access_to_register(self):
+        if self.employment:
+            return True
+
+    def get_paid(self, money):
+        self.payments += money
+
+    def __str__(self):
+        return f"Worker {self.name} is {self.age} years old and has made ${self.payments}"
+
+
+class Console:
+    def __init__(self):
+        pass
+
+    def handle_menu_input(self, user_input):
+        if user_input == 1:
+            # When the user wants a new flavor, the flavor should be added to the truck, and
+            # the cost should be deducted from their money available.
+            print("What flavor would you like to add?")
+            name = input("Name: ")
+            scoops = int(input("Number of Scoops: "))
+            cost_customer = float(input("Cost to Customer: "))
+            cost_you = float(input("Cost of purchase: "))
+            self.truck.add_flavor(IceCream(name, scoops, cost_customer, cost_you))
+            return True
+
+        if user_input == 2:
+            if self.employees == 10:
+                print("You have the max amount of workers! \n")
+            else:
+                print(f"You're on the hunt for a new minimum wage worker! (Capacity: {len(self.employees)}/10)")
+                name = input("Give them a name: ")
+                age = int(input("Give them an age: "))
+                new_employee = TruckWorker(name, age, True)
+                self.employees.append(new_employee)
+                print(f"You've hired {name}! This cost you $50")
+                self.truck.hire_new_worker('truck worker')
+                print(f"Your available balance is {self.truck.money_available}")
+                new_customers = self.generate_customers()
+                print(f"{new_customers[0]} and {new_customers[1]} have both joined the line! \n")
+                self.customers_in_line += new_customers
+            return True
+
+        if user_input == 3:
+            print("You're on the hunt for a new minimum wage driver!")
+            name = input("Give them a name: ")
+            age = int(input("Give them an age: "))
+            print(f"You have fired {self.truck_driver.name}!")
+            self.truck_driver = Driver(name, age, True)
+            print(f"You've hired {name} \n")
+            self.truck.hire_new_worker('driver')
+            print(f"Your available balance is {self.truck.money_available} \n")
+            return True
+
+        if user_input == 4:
+            print("Showing all employees:")
+            print(self.truck_driver)
+            for employee in self.employees:
+                print(employee)
+            print()
+            return True
+
+        if user_input == 5:
+            print("Showing your stock:")
+            for name, scoops in self.truck.flavors.items():
+                print(f"{name}: {scoops.number_scoops} scoops left")
+            print()
+            return True
+
+        if user_input == 6:
+            print(f"{self.truck.name} has sold {self.truck.scoops_sold} for ${self.truck.total_revenue}:")
+            for name, scoops in self.truck.total_sales.items():
+                print(f"* {scoops} scoops of {name} ice cream")
+            print()
+            return True
+
+        if user_input == 7:
+            print("Closing down the shop. Goodbye!")
+            return False
+
+    def menu(self):
+        print("Please select an option from the menu below: ")
+        print("1. Add a new Ice Cream Flavor")
+        print("2. Hire a new Truck Worker")
+        print("3. Hire a new Driver")
+        print("4. Show all Employees")
+        print("5. Show Ice Cream stock")
+        # Not having a 6 option because 1 takes care of this case
+        print("6. Display # of sales (both the number of ice cream sold, and the cash those sales generated")
+        print("7. Close for the day (quit the loop) \n")
+        user_input = int(input("User Input: "))
+        return user_input
+
+    def generate_customers(self):
+        # To make things a little more challenging I decided that for every Truck employee that
+        # is on the roster, will spawn in 2 more customers
+        customers = []
+        for employee in range(0, 2):
+            name = fake.name().lower()
+            age = randint(18, 45)
+            dollars = randint(0, 9)
+            customer = Customer(name, age, dollars)
+            customers.append(customer)
+        return customers
+
+    def customer_buying_ice_cream(self):
+        # After every turn, this function goes off. The amount of customers depends on employee count.
+        print("CUSTOMER TRANSACTION: ")
+        for index in range(0, len(self.employees)):
+            print(f"{self.employees[index].name} is on the job! They are serving {self.customers_in_line[0].name}!")
+            customer_name = self.customers_in_line[0].name
+            # Find a random Ice Cream Object, and let our customers in line function do the rest of the work
+            menu_choices = [i for i in self.truck.flavors.keys()]
+            result = self.customers_in_line[0].customer_purchase(self.truck.flavors[choice(menu_choices)])
+            if not result:
+                print("They cannot purchase ice cream.")
+            else:
+                ice_cream_bought = result[0]
+                amount_of_scoops = result[1]
+                # Finally, we need to calculate the profit made after paying our employees
+                total_cost = result[2]
+                profit = self.truck.pay_workers(self.truck_driver, self.employees[index], total_cost)
+                self.truck.log_purchase(ice_cream_bought, amount_of_scoops, profit)
+                print(f"You've made ${profit} off that customer and now have ${self.truck.money_available}!")
+            self.customers_in_line.pop(0)
+            # For quality of life
+            print(f"{customer_name} has left the line. \n")
+
+    def main(self):
+        # Create truck object at the very beginning of program
+        # We also create a TruckWorker object as default it comes with one employee, for free
+        # A truck driver comes for free as well
+        print("Congratulations! You have decided to start your own Ice Cream Truck!")
+        print("What is your new business's name and how much would you like to invest? \n")
+        name = input("Business Name: ")
+        money_available = input("Start-Up Cash: ")
+        self.truck = Truck(name, int(money_available))
+        self.employees = [TruckWorker(fake.name(), 18, True)]
+        self.truck_driver = Driver(fake.name(), 34, True)
+        print(f"You have created {name}, and invested ${money_available}! \n")
+        # Before starting the loop, we need to create a line of customers
+        self.customers_in_line = self.generate_customers()
+        print(f"The following customers are in line: {[i.name for i in self.customers_in_line]} \n")
+        print(f"Welcome to {self.truck.name}!")
+        while True:
+            user_input = self.menu()
+            result = self.handle_menu_input(user_input)
+            if result:
+                # So whenever the user successfully completes an action, customers will automatically try to buy.
+                # The amount of employees that are available will determine how many customers come at a time.
+                # This ratio is 1:1
+                self.customer_buying_ice_cream()
+                if len(self.customers_in_line) == 0:
+                    print("There are no more customers for the day. Goodbye!")
+                    break
+            else:
+                break
+
+
+if __name__ == "__main__":
+    game = Console().main()
